@@ -1,169 +1,54 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VOX STELLARUM</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style type="text/tailwindcss">
+    @layer base {
+        body { @apply bg-[#020617] text-amber-50 min-h-screen overflow-x-hidden; }
+    }
+    /* Сетка как в оригинале: 4 колонки на мобильных, 6-8 на десктопе */
+    .tarot-deck-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); 
+        gap: 0.75rem; 
+    }
+    @media (min-width: 640px) {
+        .tarot-deck-grid { grid-template-columns: repeat(8, 1fr); }
+    }
+</style>
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { cinzel: ['Cinzel', 'serif'], serif: ['Lora', 'serif'] },
-                    animation: { 
-                        'fade-in': 'fadeIn 0.6s ease-out forwards', 
-                        'zoom-in': 'zoomIn 0.4s ease-out forwards' 
-                    },
-                    keyframes: {
-                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-                        zoomIn: { '0%': { opacity: '0', transform: 'scale(0.9)' }, '100%': { opacity: '1', transform: 'scale(1)' } }
-                    }
-                }
-            }
-        }
-    </script>
-</head>
-<body class="bg-[#020617] text-amber-50">
-    <div id="root"></div>
+<div key="step-2" className="w-full max-w-2xl space-y-8 animate-fade-in text-center">
+    {/* Верхние слоты: зафиксировали размер, чтобы верстка не ехала */}
+    <div className="grid grid-cols-3 gap-4 h-40 sm:h-52 mb-10">
+        {[0, 1, 2].map(i => (
+            <div key={i} className={`aspect-[2/3] border-2 border-dashed rounded-2xl flex items-center justify-center transition-all duration-500 ${selectedCards[i] ? 'border-amber-500/50 bg-slate-900/50 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'border-amber-900/20 bg-slate-950/40'}`}>
+                {selectedCards[i] ? (
+                    <span className="text-4xl sm:text-6xl animate-zoom-in">{selectedCards[i].emoji}</span>
+                ) : (
+                    <span className="opacity-10 text-xl">✦</span>
+                )}
+            </div>
+        ))}
+    </div>
 
-    <script type="text/babel">
-        const { useState } = React;
-
-        const TAROT_DECK = [
-            { name: "The Fool", emoji: "🃏" }, { name: "The Magician", emoji: "🪄" },
-            { name: "The High Priestess", emoji: "🌙" }, { name: "The Empress", emoji: "🌿" },
-            { name: "The Emperor", emoji: "👑" }, { name: "The Hierophant", emoji: "⛪" },
-            { name: "The Lovers", emoji: "❤️" }, { name: "The Chariot", emoji: "⚔️" },
-            { name: "Strength", emoji: "🦁" }, { name: "The Hermit", emoji: "🏮" },
-            { name: "Wheel of Fortune", emoji: "🎡" }, { name: "Justice", emoji: "⚖️" },
-            { name: "The Hanged Man", emoji: "⏳" }, { name: "Death", emoji: "💀" },
-            { name: "Temperance", emoji: "🍷" }, { name: "The Devil", emoji: "😈" },
-            { name: "The Tower", emoji: "⚡" }, { name: "The Star", emoji: "⭐" },
-            { name: "The Moon", emoji: "🌕" }, { name: "The Sun", emoji: "☀️" },
-            { name: "Judgement", emoji: "🎺" }, { name: "The World", emoji: "🌍" }
-        ];
-
-        function App() {
-            const [step, setStep] = useState('welcome');
-            const [selectedCards, setSelectedCards] = useState([]);
-            const [reading, setReading] = useState("");
-            const [loading, setLoading] = useState(false);
-            const [question, setQuestion] = useState("");
-
-            const drawCard = (card) => {
-                if (selectedCards.length < 3 && !selectedCards.find(c => c.name === card.name)) {
-                    setSelectedCards(prev => [...prev, card]);
-                }
-            };
-
-            const generateReading = async () => {
-                setLoading(true);
-                setStep('reading');
-                try {
-                    const res = await fetch('/api/oracle', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ question: `Вопрос: ${question}. Карты: ${selectedCards.map(c => c.name).join(', ')}` })
-                    });
-                    const data = await res.json();
-                    setReading(data.answer);
-                } catch (e) {
-                    setReading("Звезды скрылись в тумане. Попробуйте еще раз.");
-                } finally {
-                    setLoading(false);
-                }
-            };
-
+    {/* Колода: теперь она выглядит аккуратно */}
+    <div className="tarot-deck-grid p-4 bg-slate-900/20 rounded-3xl border border-amber-900/10">
+        {TAROT_DECK.map((card) => {
+            const isSelected = selectedCards.some(c => c.name === card.name);
             return (
-                <div className="max-w-2xl mx-auto px-6 py-12 min-h-screen flex flex-col items-center">
-                    <header className="text-center mb-12 animate-fade-in">
-                        <h1 className="text-4xl font-black font-cinzel tracking-widest text-amber-500">VOX STELLARUM</h1>
-                    </header>
-
-                    {step === 'welcome' && (
-                        <div key="step-1" className="w-full bg-slate-900/40 p-8 rounded-3xl border border-amber-900/20 animate-fade-in shadow-2xl">
-                            <textarea 
-                                value={question}
-                                onChange={(e) => setQuestion(e.target.value)}
-                                placeholder="Задайте ваш вопрос..."
-                                className="w-full bg-transparent border-b border-amber-900/30 p-4 text-xl text-amber-100 outline-none h-32 resize-none"
-                            />
-                            <button onClick={() => setStep('drawing')} className="w-full mt-6 py-4 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-xl font-cinzel transition-all">
-                                Начать Ритуал
-                            </button>
-                        </div>
-                    )}
-
-                    {step === 'drawing' && (
-                        <div key="step-2" className="w-full space-y-10 animate-fade-in text-center">
-                            <div className="grid grid-cols-3 gap-4 h-48">
-                                {[0, 1, 2].map(i => (
-                                    <div key={i} className="aspect-[2/3] border-2 border-dashed border-amber-900/30 rounded-xl flex items-center justify-center bg-slate-900/20">
-                                        {selectedCards[i] ? (
-                                            <span className="text-5xl animate-zoom-in">{selectedCards[i].emoji}</span>
-                                        ) : (
-                                            <span className="opacity-20 text-2xl">✦</span>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="grid grid-cols-5 sm:grid-cols-6 gap-2">
-                                {TAROT_DECK.map((card, idx) => {
-                                    const isSelected = selectedCards.some(c => c.name === card.name);
-                                    return (
-                                        <button 
-                                            key={card.name} 
-                                            disabled={selectedCards.length >= 3 || isSelected}
-                                            onClick={() => drawCard(card)}
-                                            className={`aspect-[2/3] bg-slate-800 border border-amber-900/40 rounded-lg transition-all 
-                                            ${isSelected ? 'opacity-0 scale-50' : 'hover:border-amber-400 hover:-translate-y-1'}`}
-                                        />
-                                    );
-                                })}
-                            </div>
-
-                            {selectedCards.length === 3 && (
-                                <button onClick={generateReading} className="w-full py-5 bg-transparent border-2 border-amber-500 text-amber-500 rounded-full font-cinzel hover:bg-amber-500 hover:text-slate-950 transition-all shadow-[0_0_20px_rgba(245,158,11,0.2)]">
-                                    УЗНАТЬ ПРАВДУ
-                                </button>
-                            )}
-                        </div>
-                    )}
-
-                    {step === 'reading' && (
-                        <div key="step-3" className="w-full bg-slate-900/60 p-8 rounded-[2rem] border border-amber-500/20 animate-fade-in shadow-2xl">
-                            {loading ? (
-                                <div className="text-center py-10 space-y-4">
-                                    <div className="w-12 h-12 border-t-2 border-amber-500 rounded-full animate-spin mx-auto"></div>
-                                    <p className="font-cinzel text-amber-200 animate-pulse tracking-widest">Считывание Эфира...</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    <div className="flex justify-center gap-4 mb-6">
-                                        {selectedCards.map(c => <span key={c.name} className="text-4xl">{c.emoji}</span>)}
-                                    </div>
-                                    <p className="text-amber-100/90 leading-relaxed font-serif text-lg italic whitespace-pre-wrap">
-                                        {reading.replace(/[#*]/g, '')}
-                                    </p>
-                                    <button onClick={() => {setStep('welcome'); setSelectedCards([]);}} className="w-full mt-8 py-3 text-amber-600 font-cinzel text-xs uppercase tracking-widest hover:text-amber-400 transition-colors">
-                                        Заново
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                <button 
+                    key={card.name} 
+                    disabled={selectedCards.length >= 3 || isSelected}
+                    onClick={() => drawCard(card)}
+                    className={`aspect-[2/3] bg-slate-800/80 border border-amber-900/40 rounded-lg transition-all duration-300 
+                    ${isSelected ? 'opacity-0 scale-50 pointer-events-none' : 'hover:border-amber-400 hover:-translate-y-1 active:scale-90 shadow-md'}`}
+                />
             );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+        })}
+    </div>
+    
+    {/* Кнопка — теперь с правильным отступом */}
+    <div className="h-20 flex items-center justify-center">
+        {selectedCards.length === 3 && (
+            <button onClick={generateReading} className="w-full py-4 bg-transparent border-2 border-amber-500 text-amber-500 rounded-full font-cinzel hover:bg-amber-500 hover:text-slate-950 transition-all uppercase tracking-widest shadow-lg animate-fade-in">
+                Узнать Судьбу
+            </button>
+        )}
+    </div>
+</div>

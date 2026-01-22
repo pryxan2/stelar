@@ -3,117 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VOX STELLARUM — Карты Судьбы</title>
+    <title>VOX STELLARUM</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lora:ital@1&display=swap');
-        body { background: #020617; color: #fef3c7; font-family: 'Lora', serif; overflow-x: hidden; }
-        .font-cinzel { font-family: 'Cinzel', serif; }
-        .oracle-bg { background: radial-gradient(circle at center, #1e1b4b 0%, #020617 100%); min-height: 100vh; }
-        
-        .card {
-            width: 140px;
-            height: 220px;
-            cursor: pointer;
-            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-            transform-style: preserve-3d;
-            position: relative;
-        }
-        .card:hover { transform: translateY(-15px) scale(1.05); }
-        .card.flipped { transform: rotateY(180deg); }
-        
-        .card-face {
-            position: absolute; width: 100%; height: 100%;
-            backface-visibility: hidden;
-            border-radius: 12px;
-            border: 2px solid #b45309;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .card-back { background: #1e1b4b; background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png'); }
-        .card-front { background: #0f172a; transform: rotateY(180deg); padding: 15px; text-align: center; }
-        
-        .glow { box-shadow: 0 0 20px rgba(251, 191, 36, 0.3); }
-    </style>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState } = React;
+        // Достаем иконки из глобального объекта lucide
+        const { Sparkles, Moon, Sun, Scroll, RefreshCw, Wand2, Quote } = {
+            Sparkles: (props) => <i data-lucide="sparkles" {...props}></i>,
+            Moon: (props) => <i data-lucide="moon" {...props}></i>,
+            RefreshCw: (props) => <i data-lucide="refresh-cw" {...props}></i>,
+            Wand2: (props) => <i data-lucide="wand-2" {...props}></i>,
+            Quote: (props) => <i data-lucide="quote" {...props}></i>
+        };
+
+        const TAROT_DECK = [
+            { name: "The Fool", emoji: "🃏" }, { name: "The Magician", emoji: "🪄" },
+            { name: "The High Priestess", emoji: "🌙" }, { name: "The Empress", emoji: "🌿" },
+            { name: "The Emperor", emoji: "👑" }, { name: "The Hierophant", emoji: "⛪" },
+            { name: "The Lovers", emoji: "❤️" }, { name: "The Chariot", emoji: "⚔️" },
+            { name: "Strength", emoji: "🦁" }, { name: "The Hermit", emoji: "🏮" },
+            { name: "Wheel of Fortune", emoji: "🎡" }, { name: "Justice", emoji: "⚖️" },
+            { name: "The Hanged Man", emoji: "⏳" }, { name: "Death", emoji: "💀" },
+            { name: "Temperance", emoji: "🍷" }, { name: "The Devil", emoji: "😈" },
+            { name: "The Tower", emoji: "⚡" }, { name: "The Star", emoji: "⭐" },
+            { name: "The Moon", emoji: "🌕" }, { name: "The Sun", emoji: "☀️" },
+            { name: "Judgement", emoji: "🎺" }, { name: "The World", emoji: "🌍" }
+        ];
+
+        const FormattedReading = ({ text }) => {
+            if (!text) return null;
+            const blocks = text.split('\n\n');
+            return (
+                <div className="space-y-6">
+                    {blocks.map((block, idx) => {
+                        const cleanBlock = block.replace(/[#*]/g, '').trim();
+                        if (idx === 0) return <p key={idx} className="text-xl italic text-amber-200/90 text-center">{cleanBlock}</p>;
+                        return <p key={idx} className="text-amber-100/80 leading-relaxed">{cleanBlock}</p>;
+                    })}
+                </div>
+            );
+        };
 
         const App = () => {
-            const [question, setQuestion] = useState("");
-            const [selectedCard, setSelectedCard] = useState(null);
-            const [reading, setReading] = useState("");
-            const [loading, setLoading] = useState(false);
+            const [step, setStep] = React.useState('welcome');
+            const [selectedCards, setSelectedCards] = React.useState([]);
+            const [reading, setReading] = React.useState("");
+            const [loading, setLoading] = React.useState(false);
+            const [question, setQuestion] = React.useState("");
 
-            const handleCardClick = async (index) => {
-                if (!question.trim()) return alert("Сначала задайте вопрос звездам...");
-                if (loading) return;
+            React.useEffect(() => { lucide.createIcons(); }, [step, loading]);
 
-                setSelectedCard(index);
+            const drawCard = (card) => {
+                if (selectedCards.length < 3 && !selectedCards.find(c => c.name === card.name)) {
+                    setSelectedCards([...selectedCards, card]);
+                }
+            };
+
+            const generateReading = async () => {
                 setLoading(true);
+                setStep('reading');
+                const cardNames = selectedCards.map(c => c.name).join(", ");
                 
                 try {
                     const response = await fetch("/api/oracle", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ question })
+                        body: JSON.stringify({ 
+                            question: `Мой вопрос: ${question}. Выпавшие карты: ${cardNames}` 
+                        })
                     });
                     const data = await response.json();
                     setReading(data.answer);
                 } catch (err) {
-                    setReading("Связь с небесами прервана...");
+                    setReading("Ошибка связи с миром духов.");
                 } finally {
                     setLoading(false);
                 }
             };
 
             return (
-                <div className="oracle-bg flex flex-col items-center justify-center p-4">
-                    <h1 className="text-4xl font-cinzel text-amber-400 tracking-widest mb-8 uppercase">Vox Stellarum</h1>
-                    
-                    {!reading ? (
-                        <div className="w-full max-w-xl space-y-12">
-                            <input 
-                                className="w-full bg-transparent border-b border-amber-900/50 p-4 text-2xl outline-none text-center italic"
-                                placeholder="Что вы хотите узнать?"
-                                value={question}
-                                onChange={(e) => setQuestion(e.target.value)}
-                            />
-                            
-                            <div className="flex justify-center gap-6">
-                                {[0, 1, 2].map((i) => (
-                                    <div 
-                                        key={i} 
-                                        className={`card glow ${loading && selectedCard === i ? 'flipped' : ''}`}
-                                        onClick={() => handleCardClick(i)}
-                                    >
-                                        <div className="card-face card-back">
-                                            <div className="text-amber-600 text-4xl">✧</div>
-                                        </div>
-                                        <div className="card-face card-front">
-                                            <div className="text-amber-400 text-xs font-cinzel">Идет чтение...</div>
-                                        </div>
-                                    </div>
-                                ))}
+                <div className="min-h-screen bg-slate-950 text-amber-100 p-6 font-serif">
+                    <div className="max-w-3xl mx-auto py-12">
+                        <header className="text-center mb-16">
+                            <h1 className="text-5xl font-bold text-amber-400 mb-2">VOX STELLARUM</h1>
+                            <p className="text-amber-600 tracking-widest uppercase text-xs">Голос Звезд</p>
+                        </header>
+
+                        {step === 'welcome' && (
+                            <div className="bg-slate-900/40 p-10 rounded-3xl border border-amber-900/30 text-center">
+                                <textarea 
+                                    className="w-full bg-transparent border-b border-amber-900/50 p-4 text-2xl outline-none mb-10"
+                                    placeholder="Ваш вопрос..."
+                                    value={question}
+                                    onChange={(e) => setQuestion(e.target.value)}
+                                />
+                                <button onClick={() => setStep('drawing')} className="w-full py-5 bg-amber-600 rounded-2xl text-slate-950 font-bold uppercase">Начать ритуал</button>
                             </div>
-                            <p className="text-center text-amber-700/60 animate-pulse uppercase tracking-widest text-[10px]">Выберите одну из карт</p>
-                        </div>
-                    ) : (
-                        <div className="max-w-xl text-center space-y-8 animate-fade-in">
-                            <p className="text-2xl italic leading-relaxed text-amber-100">{reading}</p>
-                            <button 
-                                onClick={() => { setReading(""); setQuestion(""); setSelectedCard(null); }}
-                                className="px-8 py-3 border border-amber-900/50 text-amber-600 font-cinzel hover:bg-amber-900/20 transition-all"
-                            >
-                                Начать новое гадание
-                            </button>
-                        </div>
-                    )}
+                        )}
+
+                        {step === 'drawing' && (
+                            <div className="space-y-12">
+                                <div className="grid grid-cols-3 gap-4">
+                                    {[0, 1, 2].map(i => (
+                                        <div key={i} className="aspect-[2/3] border-2 border-dashed border-amber-900/30 rounded-2xl flex items-center justify-center text-4xl bg-slate-900/50">
+                                            {selectedCards[i] ? selectedCards[i].emoji : "✦"}
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="grid grid-cols-6 gap-2">
+                                    {TAROT_DECK.map((card, i) => (
+                                        <button key={i} onClick={() => drawCard(card)} className="aspect-[2/3] bg-slate-900 border border-amber-900/40 rounded-lg hover:border-amber-400">✧</button>
+                                    ))}
+                                </div>
+                                {selectedCards.length === 3 && (
+                                    <button onClick={generateReading} className="w-full py-5 border-2 border-amber-500 text-amber-400 rounded-full font-bold uppercase">Узнать правду</button>
+                                )}
+                            </div>
+                        )}
+
+                        {step === 'reading' && (
+                            <div className="bg-slate-900/60 p-10 rounded-3xl border border-amber-500/20">
+                                {loading ? <p className="text-center animate-pulse">Соединение с Эфиром...</p> : <FormattedReading text={reading} />}
+                                {!loading && <button onClick={() => location.reload()} className="mt-10 block mx-auto text-amber-600 uppercase text-xs">Новое обращение</button>}
+                            </div>
+                        )}
+                    </div>
                 </div>
             );
         };
@@ -121,5 +142,10 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lora&display=swap');
+        body { font-family: 'Lora', serif; }
+        h1 { font-family: 'Cinzel', serif; }
+    </style>
 </body>
 </html>

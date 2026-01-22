@@ -7,34 +7,41 @@ export default async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    return res.status(200).json({ answer: "Ошибка: Ключ GEMINI_API_KEY не найден в Vercel." });
+    return res.status(200).json({ answer: "Ошибка: Ключ GEMINI_API_KEY не найден." });
   }
 
   try {
-    // Используем v1beta и ПОЛНОЕ название модели с суффиксом -latest
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+    // Используем gemini-1.5-pro — она самая мощная и обычно доступна по умолчанию
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ 
-          parts: [{ text: `Ты — мудрый Оракул. Дай мистический ответ на русском языке: ${question}` }] 
+          parts: [{ text: `Ты — таинственный Оракул. Ответь глубоко и мистически на русском языке: ${question}` }] 
         }]
       })
     });
 
     const data = await response.json();
 
-    if (data.error) {
-      // Если опять будет 404, этот текст подскажет нам точное имя, которое хочет Google
-      return res.status(200).json({ 
-        answer: `Google API сообщает: ${data.error.message}` 
+    // Если всё еще 404, значит Google хочет старую добрую версию gemini-pro
+    if (data.error && data.error.code === 404) {
+      const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `Ответь как Оракул на русском: ${question}` }] }]
+        })
       });
+      const fallbackData = await fallbackResponse.json();
+      const fallbackAnswer = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text;
+      return res.status(200).json({ answer: fallbackAnswer || `Ошибка API: ${data.error.message}` });
     }
 
     const answerText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     return res.status(200).json({ answer: answerText || "Звезды молчат..." });
 
   } catch (error) {
-    return res.status(500).json({ answer: "Ошибка связи с сервером предсказаний." });
+    return res.status(500).json({ answer: "Ошибка связи с миром духов." });
   }
 }

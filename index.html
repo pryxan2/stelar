@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VOX STELLARUM</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lora:ital@1&display=swap');
+        body { background-color: #020617; color: #fef3c7; font-family: 'Lora', serif; margin: 0; }
+        .oracle-bg { background: radial-gradient(circle at center, #1e1b4b 0%, #020617 100%); min-height: 100vh; }
+        .font-cinzel { font-family: 'Cinzel', serif; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        const App = () => {
+            const [step, setStep] = useState('welcome');
+            const [question, setQuestion] = useState("");
+            const [reading, setReading] = useState("");
+            const [loading, setLoading] = useState(false);
+
+            const generateReading = async () => {
+                if (!question.trim()) return alert("Звезды ждут вопроса...");
+                setLoading(true);
+                setStep('reading');
+                
+                try {
+                    // Запрос к твоему серверу на Vercel
+                    const response = await fetch("/api/oracle", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ question })
+                    });
+
+                    const data = await response.json();
+                    setReading(data.answer || "Звезды сегодня молчат...");
+                } catch (err) {
+                    setReading("Ошибка связи с эфиром.");
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="oracle-bg flex items-center justify-center p-6">
+                    <div className="max-w-xl w-full text-center">
+                        <h1 className="text-4xl font-cinzel text-amber-400 tracking-widest mb-12 uppercase">Vox Stellarum</h1>
+                        
+                        {step === 'welcome' ? (
+                            <div className="space-y-6 bg-slate-900/40 p-8 rounded-3xl border border-amber-900/20">
+                                <textarea 
+                                    className="w-full bg-transparent border-b border-amber-900/30 p-4 text-xl outline-none text-amber-100 italic text-center resize-none"
+                                    placeholder="Ваш вопрос вечности..."
+                                    value={question}
+                                    onChange={(e) => setQuestion(e.target.value)}
+                                />
+                                <button onClick={generateReading} className="w-full py-4 bg-amber-600 rounded-xl text-slate-950 font-bold uppercase tracking-widest hover:bg-amber-500 transition-colors">
+                                    Вопросить
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="bg-slate-900/60 p-10 rounded-3xl border border-amber-500/10">
+                                {loading ? (
+                                    <p className="animate-pulse text-amber-500 font-cinzel tracking-widest">Считывание знаков...</p>
+                                ) : (
+                                    <>
+                                        <p className="text-2xl italic leading-relaxed">{reading}</p>
+                                        <button onClick={() => setStep('welcome')} className="mt-8 text-[10px] text-amber-700 uppercase tracking-widest border-b border-amber-900/30">Вернуться</button>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

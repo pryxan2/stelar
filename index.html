@@ -1,54 +1,156 @@
-<style type="text/tailwindcss">
-    @layer base {
-        body { @apply bg-[#020617] text-amber-50 min-h-screen overflow-x-hidden; }
-    }
-    /* Сетка как в оригинале: 4 колонки на мобильных, 6-8 на десктопе */
-    .tarot-deck-grid { 
-        display: grid; 
-        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); 
-        gap: 0.75rem; 
-    }
-    @media (min-width: 640px) {
-        .tarot-deck-grid { grid-template-columns: repeat(8, 1fr); }
-    }
-</style>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOX STELLARUM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { cinzel: ['Cinzel', 'serif'], serif: ['Lora', 'serif'] },
+                    animation: { 'fade-in': 'fadeIn 0.6s ease-out forwards', 'zoom-in': 'zoomIn 0.4s ease-out forwards' },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        zoomIn: { '0%': { opacity: '0', transform: 'scale(0.9)' }, '100%': { opacity: '1', transform: 'scale(1)' } }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer base { body { @apply bg-[#020617] text-amber-50 min-h-screen overflow-x-hidden; } }
+        .tarot-deck-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 0.5rem; 
+        }
+        @media (min-width: 640px) { .tarot-deck-grid { grid-template-columns: repeat(8, 1fr); gap: 0.75rem; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-<div key="step-2" className="w-full max-w-2xl space-y-8 animate-fade-in text-center">
-    {/* Верхние слоты: зафиксировали размер, чтобы верстка не ехала */}
-    <div className="grid grid-cols-3 gap-4 h-40 sm:h-52 mb-10">
-        {[0, 1, 2].map(i => (
-            <div key={i} className={`aspect-[2/3] border-2 border-dashed rounded-2xl flex items-center justify-center transition-all duration-500 ${selectedCards[i] ? 'border-amber-500/50 bg-slate-900/50 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'border-amber-900/20 bg-slate-950/40'}`}>
-                {selectedCards[i] ? (
-                    <span className="text-4xl sm:text-6xl animate-zoom-in">{selectedCards[i].emoji}</span>
-                ) : (
-                    <span className="opacity-10 text-xl">✦</span>
-                )}
-            </div>
-        ))}
-    </div>
+    <script type="text/babel">
+        const { useState } = React;
 
-    {/* Колода: теперь она выглядит аккуратно */}
-    <div className="tarot-deck-grid p-4 bg-slate-900/20 rounded-3xl border border-amber-900/10">
-        {TAROT_DECK.map((card) => {
-            const isSelected = selectedCards.some(c => c.name === card.name);
+        const TAROT_DECK = [
+            { name: "Fool", emoji: "🃏" }, { name: "Magician", emoji: "🪄" }, { name: "Priestess", emoji: "🌙" },
+            { name: "Empress", emoji: "🌿" }, { name: "Emperor", emoji: "👑" }, { name: "Hierophant", emoji: "⛪" },
+            { name: "Lovers", emoji: "❤️" }, { name: "Chariot", emoji: "⚔️" }, { name: "Strength", emoji: "🦁" },
+            { name: "Hermit", emoji: "🏮" }, { name: "Wheel", emoji: "🎡" }, { name: "Justice", emoji: "⚖️" },
+            { name: "Hanged", emoji: "⏳" }, { name: "Death", emoji: "💀" }, { name: "Temperance", emoji: "🍷" },
+            { name: "Devil", emoji: "😈" }, { name: "Tower", emoji: "⚡" }, { name: "Star", emoji: "⭐" },
+            { name: "Moon", emoji: "🌕" }, { name: "Sun", emoji: "☀️" }, { name: "Judgement", emoji: "🎺" }, { name: "World", emoji: "🌍" }
+        ];
+
+        function App() {
+            const [step, setStep] = useState('welcome');
+            const [selectedCards, setSelectedCards] = useState([]);
+            const [reading, setReading] = useState("");
+            const [loading, setLoading] = useState(false);
+            const [question, setQuestion] = useState("");
+
+            const drawCard = (card) => {
+                if (selectedCards.length < 3 && !selectedCards.some(c => c.name === card.name)) {
+                    setSelectedCards(prev => [...prev, card]);
+                }
+            };
+
+            const generateReading = async () => {
+                setLoading(true);
+                setStep('reading');
+                try {
+                    const res = await fetch('/api/oracle', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ question: `Вопрос: ${question}. Карты: ${selectedCards.map(c => c.name).join(', ')}` })
+                    });
+                    const data = await res.json();
+                    setReading(data.answer);
+                } catch (e) { setReading("Связь прервана..."); }
+                finally { setLoading(false); }
+            };
+
             return (
-                <button 
-                    key={card.name} 
-                    disabled={selectedCards.length >= 3 || isSelected}
-                    onClick={() => drawCard(card)}
-                    className={`aspect-[2/3] bg-slate-800/80 border border-amber-900/40 rounded-lg transition-all duration-300 
-                    ${isSelected ? 'opacity-0 scale-50 pointer-events-none' : 'hover:border-amber-400 hover:-translate-y-1 active:scale-90 shadow-md'}`}
-                />
+                <div className="max-w-3xl mx-auto px-4 py-12 flex flex-col items-center">
+                    <h1 className="text-3xl font-black font-cinzel tracking-[0.3em] text-amber-500 mb-12 animate-fade-in uppercase">Vox Stellarum</h1>
+
+                    {step === 'welcome' && (
+                        <div className="w-full max-w-md bg-slate-900/40 p-8 rounded-3xl border border-amber-900/20 animate-fade-in shadow-2xl">
+                            <textarea 
+                                value={question}
+                                onChange={(e) => setQuestion(e.target.value)}
+                                placeholder="О чем шепчут звезды?.."
+                                className="w-full bg-transparent border-b border-amber-900/30 p-2 text-lg text-amber-100 outline-none h-24 resize-none mb-6"
+                            />
+                            <button onClick={() => setStep('drawing')} className="w-full py-4 bg-amber-600 text-slate-950 font-bold rounded-xl font-cinzel uppercase tracking-widest active:scale-95 transition-transform">Начать</button>
+                        </div>
+                    )}
+
+                    {step === 'drawing' && (
+                        <div className="w-full space-y-8 animate-fade-in flex flex-col items-center">
+                            <div className="grid grid-cols-3 gap-3 w-full max-w-md h-40 sm:h-48">
+                                {[0, 1, 2].map(i => (
+                                    <div key={i} className={`aspect-[2/3] border-2 border-dashed rounded-2xl flex items-center justify-center transition-all ${selectedCards[i] ? 'border-amber-500 bg-slate-900 shadow-xl' : 'border-amber-900/20 bg-slate-950/40'}`}>
+                                        {selectedCards[i] ? <span className="text-4xl sm:text-5xl animate-zoom-in">{selectedCards[i].emoji}</span> : <span className="opacity-10">✦</span>}
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="tarot-deck-grid w-full p-4 bg-slate-900/20 rounded-3xl border border-amber-900/10 shadow-inner">
+                                {TAROT_DECK.map(card => {
+                                    const isSelected = selectedCards.some(c => c.name === card.name);
+                                    return (
+                                        <button 
+                                            key={card.name} 
+                                            disabled={selectedCards.length >= 3 || isSelected}
+                                            onClick={() => drawCard(card)}
+                                            className={`aspect-[2/3] bg-slate-800/80 border border-amber-900/40 rounded-lg transition-all duration-300 ${isSelected ? 'opacity-0 scale-50 pointer-events-none' : 'hover:border-amber-400 hover:-translate-y-1 active:scale-90 shadow-md'}`}
+                                        />
+                                    );
+                                })}
+                            </div>
+
+                            <div className="h-16 w-full flex justify-center">
+                                {selectedCards.length === 3 && (
+                                    <button onClick={generateReading} className="px-12 py-4 border-2 border-amber-500 text-amber-500 rounded-full font-cinzel hover:bg-amber-500 hover:text-slate-950 transition-all uppercase tracking-widest animate-fade-in shadow-lg shadow-amber-500/10">Прочесть судьбу</button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 'reading' && (
+                        <div className="w-full bg-slate-900/60 p-8 rounded-[2rem] border border-amber-500/20 animate-fade-in shadow-2xl">
+                            {loading ? (
+                                <div className="text-center py-10 space-y-4">
+                                    <div className="w-10 h-10 border-t-2 border-amber-500 rounded-full animate-spin mx-auto"></div>
+                                    <p className="font-cinzel text-amber-200 animate-pulse uppercase text-xs tracking-[0.3em]">Таинство...</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6 text-center">
+                                    <div className="flex justify-center gap-4 mb-4">
+                                        {selectedCards.map(c => <span key={c.name} className="text-4xl drop-shadow-lg">{c.emoji}</span>)}
+                                    </div>
+                                    <p className="text-amber-100/90 leading-relaxed font-serif text-lg italic whitespace-pre-wrap text-left">
+                                        {reading.replace(/[#*]/g, '')}
+                                    </p>
+                                    <button onClick={() => {setStep('welcome'); setSelectedCards([]);}} className="mt-8 text-amber-600 font-cinzel text-[10px] uppercase tracking-widest hover:text-amber-400 transition-colors">В начало</button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             );
-        })}
-    </div>
-    
-    {/* Кнопка — теперь с правильным отступом */}
-    <div className="h-20 flex items-center justify-center">
-        {selectedCards.length === 3 && (
-            <button onClick={generateReading} className="w-full py-4 bg-transparent border-2 border-amber-500 text-amber-500 rounded-full font-cinzel hover:bg-amber-500 hover:text-slate-950 transition-all uppercase tracking-widest shadow-lg animate-fade-in">
-                Узнать Судьбу
-            </button>
-        )}
-    </div>
-</div>
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

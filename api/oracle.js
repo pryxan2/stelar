@@ -1,47 +1,39 @@
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
   const { question } = req.body;
   const apiKey = process.env.GEMINI_API_KEY;
 
-  if (!apiKey) {
-    return res.status(200).json({ answer: "Ошибка: Ключ GEMINI_API_KEY не найден." });
-  }
-
   try {
-    // Используем gemini-1.5-pro — она самая мощная и обычно доступна по умолчанию
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
+    // 1. Спрашиваем список доступных моделей у самого Google
+    const listResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const listData = await listResponse.json();
+
+    // 2. Ищем любую модель, которая поддерживает генерацию контента
+    const availableModel = listData.models?.find(m => m.supportedGenerationMethods.includes('generateContent'));
+
+    if (!availableModel) {
+      return res.status(200).json({ 
+        answer: "Google не предоставил доступ ни к одной модели. Проверьте статус ключа в AI Studio." 
+      });
+    }
+
+    // 3. Используем найденную модель (её точное имя из системы)
+    const modelName = availableModel.name; 
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ 
-          parts: [{ text: `Ты — таинственный Оракул. Ответь глубоко и мистически на русском языке: ${question}` }] 
-        }]
+        contents: [{ parts: [{ text: `Ты — Оракул. Ответь на русском: ${question}` }] }]
       })
     });
 
     const data = await response.json();
-
-    // Если всё еще 404, значит Google хочет старую добрую версию gemini-pro
-    if (data.error && data.error.code === 404) {
-      const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: `Ответь как Оракул на русском: ${question}` }] }]
-        })
-      });
-      const fallbackData = await fallbackResponse.json();
-      const fallbackAnswer = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text;
-      return res.status(200).json({ answer: fallbackAnswer || `Ошибка API: ${data.error.message}` });
-    }
-
-    const answerText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    return res.status(200).json({ answer: answerText || "Звезды молчат..." });
+    const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "Звезды молчат...";
+    
+    return res.status(200).json({ answer });
 
   } catch (error) {
-    return res.status(500).json({ answer: "Ошибка связи с миром духов." });
+    return res.status(500).json({ answer: "Ошибка входа в чертоги разума." });
   }
 }

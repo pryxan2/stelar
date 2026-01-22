@@ -2,17 +2,40 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VOX STELLARUM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOX STELLARUM — Карты Судьбы</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lora:ital@1&display=swap');
-        body { background-color: #020617; color: #fef3c7; font-family: 'Lora', serif; margin: 0; }
-        .oracle-bg { background: radial-gradient(circle at center, #1e1b4b 0%, #020617 100%); min-height: 100vh; }
+        body { background: #020617; color: #fef3c7; font-family: 'Lora', serif; overflow-x: hidden; }
         .font-cinzel { font-family: 'Cinzel', serif; }
+        .oracle-bg { background: radial-gradient(circle at center, #1e1b4b 0%, #020617 100%); min-height: 100vh; }
+        
+        .card {
+            width: 140px;
+            height: 220px;
+            cursor: pointer;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+            position: relative;
+        }
+        .card:hover { transform: translateY(-15px) scale(1.05); }
+        .card.flipped { transform: rotateY(180deg); }
+        
+        .card-face {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden;
+            border-radius: 12px;
+            border: 2px solid #b45309;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .card-back { background: #1e1b4b; background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png'); }
+        .card-front { background: #0f172a; transform: rotateY(180deg); padding: 15px; text-align: center; }
+        
+        .glow { box-shadow: 0 0 20px rgba(251, 191, 36, 0.3); }
     </style>
 </head>
 <body>
@@ -22,63 +45,75 @@
         const { useState } = React;
 
         const App = () => {
-            const [step, setStep] = useState('welcome');
             const [question, setQuestion] = useState("");
+            const [selectedCard, setSelectedCard] = useState(null);
             const [reading, setReading] = useState("");
             const [loading, setLoading] = useState(false);
 
-            const generateReading = async () => {
-                if (!question.trim()) return alert("Звезды ждут вопроса...");
+            const handleCardClick = async (index) => {
+                if (!question.trim()) return alert("Сначала задайте вопрос звездам...");
+                if (loading) return;
+
+                setSelectedCard(index);
                 setLoading(true);
-                setStep('reading');
                 
                 try {
-                    // Запрос к твоему серверу на Vercel
                     const response = await fetch("/api/oracle", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ question })
                     });
-
                     const data = await response.json();
-                    setReading(data.answer || "Звезды сегодня молчат...");
+                    setReading(data.answer);
                 } catch (err) {
-                    setReading("Ошибка связи с эфиром.");
+                    setReading("Связь с небесами прервана...");
                 } finally {
                     setLoading(false);
                 }
             };
 
             return (
-                <div className="oracle-bg flex items-center justify-center p-6">
-                    <div className="max-w-xl w-full text-center">
-                        <h1 className="text-4xl font-cinzel text-amber-400 tracking-widest mb-12 uppercase">Vox Stellarum</h1>
-                        
-                        {step === 'welcome' ? (
-                            <div className="space-y-6 bg-slate-900/40 p-8 rounded-3xl border border-amber-900/20">
-                                <textarea 
-                                    className="w-full bg-transparent border-b border-amber-900/30 p-4 text-xl outline-none text-amber-100 italic text-center resize-none"
-                                    placeholder="Ваш вопрос вечности..."
-                                    value={question}
-                                    onChange={(e) => setQuestion(e.target.value)}
-                                />
-                                <button onClick={generateReading} className="w-full py-4 bg-amber-600 rounded-xl text-slate-950 font-bold uppercase tracking-widest hover:bg-amber-500 transition-colors">
-                                    Вопросить
-                                </button>
+                <div className="oracle-bg flex flex-col items-center justify-center p-4">
+                    <h1 className="text-4xl font-cinzel text-amber-400 tracking-widest mb-8 uppercase">Vox Stellarum</h1>
+                    
+                    {!reading ? (
+                        <div className="w-full max-w-xl space-y-12">
+                            <input 
+                                className="w-full bg-transparent border-b border-amber-900/50 p-4 text-2xl outline-none text-center italic"
+                                placeholder="Что вы хотите узнать?"
+                                value={question}
+                                onChange={(e) => setQuestion(e.target.value)}
+                            />
+                            
+                            <div className="flex justify-center gap-6">
+                                {[0, 1, 2].map((i) => (
+                                    <div 
+                                        key={i} 
+                                        className={`card glow ${loading && selectedCard === i ? 'flipped' : ''}`}
+                                        onClick={() => handleCardClick(i)}
+                                    >
+                                        <div className="card-face card-back">
+                                            <div className="text-amber-600 text-4xl">✧</div>
+                                        </div>
+                                        <div className="card-face card-front">
+                                            <div className="text-amber-400 text-xs font-cinzel">Идет чтение...</div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ) : (
-                            <div className="bg-slate-900/60 p-10 rounded-3xl border border-amber-500/10">
-                                {loading ? (
-                                    <p className="animate-pulse text-amber-500 font-cinzel tracking-widest">Считывание знаков...</p>
-                                ) : (
-                                    <>
-                                        <p className="text-2xl italic leading-relaxed">{reading}</p>
-                                        <button onClick={() => setStep('welcome')} className="mt-8 text-[10px] text-amber-700 uppercase tracking-widest border-b border-amber-900/30">Вернуться</button>
-                                    </>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                            <p className="text-center text-amber-700/60 animate-pulse uppercase tracking-widest text-[10px]">Выберите одну из карт</p>
+                        </div>
+                    ) : (
+                        <div className="max-w-xl text-center space-y-8 animate-fade-in">
+                            <p className="text-2xl italic leading-relaxed text-amber-100">{reading}</p>
+                            <button 
+                                onClick={() => { setReading(""); setQuestion(""); setSelectedCard(null); }}
+                                className="px-8 py-3 border border-amber-900/50 text-amber-600 font-cinzel hover:bg-amber-900/20 transition-all"
+                            >
+                                Начать новое гадание
+                            </button>
+                        </div>
+                    )}
                 </div>
             );
         };
